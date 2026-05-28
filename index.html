@@ -299,14 +299,17 @@
       }
     }
 
-    function getAdminBookings() {
-      return JSON.parse(localStorage.getItem('eduBoxBookings') || '[]');
-    }
-
-    function saveAdminBooking(entry) {
-      var bookings = getAdminBookings();
-      bookings.push(entry);
-      localStorage.setItem('eduBoxBookings', JSON.stringify(bookings));
+    async function saveAdminBooking(entry) {
+      var response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry)
+      });
+      if (!response.ok) {
+        var error = await response.json().catch(function() { return { error: 'Server error' }; });
+        throw new Error(error.error || 'Booking save failed');
+      }
+      return await response.json();
     }
 
     function selectDevice(element, device) {
@@ -320,7 +323,7 @@
       bookingData.device = device;
     }
 
-    function confirmBooking() {
+    async function confirmBooking() {
       var name = document.getElementById('input-name').value.trim();
       var phone = document.getElementById('input-phone').value.trim();
       var faculty = document.getElementById('input-faculty').value.trim();
@@ -361,16 +364,21 @@
         bookingAvailability[dateKey][selectedTime] -= 1;
       }
 
-      saveAdminBooking({
-        date: dateKey,
-        time: selectedTime,
-        device: selectedDevice,
-        name: bookingData.name,
-        phone: bookingData.phone,
-        faculty: bookingData.faculty,
-        reason: bookingData.reason,
-        savedAt: new Date().toLocaleString()
-      });
+      try {
+        await saveAdminBooking({
+          date: dateKey,
+          time: selectedTime,
+          device: selectedDevice,
+          name: bookingData.name,
+          phone: bookingData.phone,
+          faculty: bookingData.faculty,
+          reason: bookingData.reason,
+          savedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        alert('Unable to save booking: ' + error.message);
+        return;
+      }
       
       goToStep(4);
       var options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
